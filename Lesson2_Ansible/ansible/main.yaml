@@ -1,0 +1,89 @@
+- hosts: osquery
+  vars:
+    ansible_ssh_private_key_file: /home/kirill/project/2024/terraform_cybered/terraform/terraform_yc_key
+  gather_facts: false
+  tasks:
+    - name: install atop
+      become: true
+      apt:
+        name: atop
+        state: present
+    - name: Install python with raw module
+      become: true
+      ansible.builtin.raw: apt install -y python3
+    - name: set timezone Europe/Moscow
+      become: true
+      community.general.timezone:
+        name: Europe/Moscow
+    - name: Ensure ntp is install
+      become: true
+      apt:
+        name: ntp
+        state: present
+    - name: Ensure the NTP service is running and enabled 
+      service: 
+        name: ntpd 
+        state: started 
+        enabled: True 
+      become: True 
+    - name: install fail2ban
+      become: true
+      apt:
+        name: fail2ban
+        state: present
+    - name: enable  fail2ban with systemd
+      become: true
+      ansible.builtin.systemd_service:
+        state: started
+        name: fail2ban
+    - name: Configure OL 8 to disable the ability to use the "atm" kernel module. CCE-82028-2
+      become: true
+      ansible.builtin.lineinfile:
+        path: /etc/modprobe.d/atm.conf
+        regexp: '^install atm'
+        line: 'install atm /bin/false'
+        create: yes 
+    - name: Add atm to blacklist. CCE-82028-2
+      become: true
+      ansible.builtin.lineinfile:
+        path: /etc/modprobe.d/blacklist.conf
+        regexp: '.*atm$'
+        line: 'blacklist atm'
+        create: yes 
+    - name: git clone fleet
+      ansible.builtin.raw: git clone https://github.com/bykvaadm/fleet-osquery-in-a-box.git
+    - name: Disable Ctrl-Alt-Del Reboot Activation CCE-80785-9
+      become: true
+      ansible.builtin.raw: ln -sf /dev/null /etc/systemd/system/ctrl-alt-del.target
+    - name: Disable Ctrl-Alt-Del Burst Action CCE-80784-2
+      become: true
+      ansible.builtin.lineinfile:
+        path: /etc/systemd/system.conf
+        regexp: '^CtrlAltDelBurstAction='
+        line: 'CtrlAltDelBurstAction=none'
+        create: yes 
+    - name: Enable auditd Service CCE-80872-5
+      ansible.builtin.systemd_service:
+        state: started
+        name: auditd
+        enabled: true
+    - name: Disable tftp service CCE-82435-9
+      ansible.builtin.systemd_service:
+        state: stopped
+        name: tftp
+        enabled: false
+    - name: install tmux CCE-80644-8
+      become: true
+      apt:
+        name: tmux
+        state: present
+    - name: Configure the tmux Lock Command CCE-80940-0
+      become: true
+      ansible.builtin.lineinfile:
+        path:  /etc/tmux.conf
+        regexp: '^set -g lock-command'
+        line: 'set -g lock-command vlock'
+        create: yes 
+
+
+
