@@ -52,6 +52,7 @@
         create: yes 
     - name: git clone fleet
       ansible.builtin.raw: git clone https://github.com/bykvaadm/fleet-osquery-in-a-box.git
+      ignore_errors: yes
     - name: Disable Ctrl-Alt-Del Reboot Activation CCE-80785-9
       become: true
       ansible.builtin.raw: ln -sf /dev/null /etc/systemd/system/ctrl-alt-del.target
@@ -62,16 +63,6 @@
         regexp: '^CtrlAltDelBurstAction='
         line: 'CtrlAltDelBurstAction=none'
         create: yes 
-    - name: Enable auditd Service CCE-80872-5
-      ansible.builtin.systemd_service:
-        state: started
-        name: auditd
-        enabled: true
-    - name: Disable tftp service CCE-82435-9
-      ansible.builtin.systemd_service:
-        state: stopped
-        name: tftp
-        enabled: false
     - name: install tmux CCE-80644-8
       become: true
       apt:
@@ -84,6 +75,54 @@
         regexp: '^set -g lock-command'
         line: 'set -g lock-command vlock'
         create: yes 
-
-
+    - name: Install nginx
+      become: true
+      apt:
+        name: nginx
+        state: present
+    - name: Install openssl 
+      become: true
+      apt:
+        name: openssl 
+        state: present
+    - name: Transfer 
+      become: true
+      copy: 
+        src: /home/kirill/project/2024/terraform_cybered/terraform/ansible/test.sh 
+        dest: /home/debian/ 
+        mode: 0777
+    - name: Execute the script
+      become: true
+      ansible.builtin.raw: sh /home/debian/test.sh
+    - name: Copy nginx conf
+      become: true
+      copy: 
+        src: /home/kirill/project/2024/terraform_cybered/terraform/ansible/default.conf 
+        dest: /etc/nginx/conf.d/
+    - name: Check nginx conf
+      become: true
+      ansible.builtin.raw: nginx -t
+    - name: Ensure Nginx service is running and enabled
+      become: true
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+    - name: restart nginx
+      become: true
+      service:
+        name: nginx
+        state: restarted
+    - name: Set access to certs folder
+      become: true
+      ansible.builtin.raw: chmod 777 -R /tmp/certs/
+    - name: try to access to nginx with cert
+      ansible.builtin.raw: curl https://localhost/secure --cert /tmp/certs/client.crt --key /tmp/certs/client.key --cacert /tmp/certs/rootCA.crt
+      register: out
+    - debug: var=out.stdout_lines
+    - name: try to access to nginx without cert
+      ignore_errors: yes
+      ansible.builtin.raw: curl https://localhost/secure -k
+      register: out
+    - debug: var=out.stdout_lines
 
