@@ -1,3 +1,0 @@
-[all]
-hacker ansible_host=89.169.129.36 ansible_user=debian
-victim ansible_host=89.169.148.139 ansible_user=debian
